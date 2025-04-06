@@ -1,0 +1,63 @@
+/* Additional styles for the registration page */
+
+.register-box {
+    max-width: 500px; /* Slightly wider than login */
+}
+
+.login-link {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 14px;
+    color: #555;
+}
+
+.login-link a {
+    color: #3494e6;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.login-link a:hover {
+    text-decoration: underline;
+}
+
+.error-message {
+    color: #e74c3c;
+    font-size: 14px;
+    margin-top: 5px;
+    display: none;
+}
+
+input.error {
+    border-color: #e74c3c;
+}
+
+/* Password strength indicator */
+.password-strength {
+    margin-top: 5px;
+    height: 5px;
+    background-color: #eee;
+    border-radius: 3px;
+    position: relative;
+}
+
+.password-strength-meter {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.weak {
+    width: 33%;
+    background-color: #e74c3c;
+}
+
+.medium {
+    width: 66%;
+    background-color: #f39c12;
+}
+
+.strong {
+    width: 100%;
+    background-color: #2ecc71;
+} 
