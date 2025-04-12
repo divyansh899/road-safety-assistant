@@ -3,6 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const { connectToMongoDB, getDB, collections } = require('./db');
+const { ObjectId } = require('mongodb');
 
 // Create Express app
 const app = express();
@@ -15,14 +16,42 @@ app.use(express.static(__dirname)); // Serve static files from root directory
 
 // MongoDB connection
 let db;
-connectToMongoDB()
-  .then((database) => {
-    db = database;
+async function initializeDB() {
+  try {
+    db = await connectToMongoDB();
     console.log('Database connection established');
-  })
-  .catch(err => {
+    
+    // Ensure collections exist
+    const collections = ['users', 'potholes', 'trafficLights'];
+    for (const collection of collections) {
+      const exists = await db.listCollections({ name: collection }).hasNext();
+      if (!exists) {
+        await db.createCollection(collection);
+        console.log(`Created collection: ${collection}`);
+      }
+    }
+  } catch (err) {
     console.error('Failed to connect to MongoDB:', err);
-  });
+    // Retry connection after 5 seconds
+    setTimeout(initializeDB, 5000);
+  }
+}
+
+// Initialize database connection
+initializeDB();
+
+// Middleware to ensure database connection
+app.use(async (req, res, next) => {
+  if (!db) {
+    try {
+      db = await getDB();
+    } catch (error) {
+      console.error('Database connection error:', error);
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+  }
+  next();
+});
 
 // Routes
 
@@ -188,6 +217,78 @@ app.post('/api/potholes', async (req, res) => {
   } catch (error) {
     console.error('Error reporting pothole:', error);
     res.status(500).json({ message: 'Server error while reporting pothole' });
+  }
+});
+
+// API: Get all traffic lights
+app.get('/api/traffic-lights', async (req, res) => {
+  try {
+    const trafficLights = await db.collection(collections.trafficLights).find({}).toArray();
+    res.json(trafficLights);
+  } catch (error) {
+    console.error('Error fetching traffic lights:', error);
+    res.status(500).json({ message: 'Error fetching traffic lights' });
+  }
+});
+
+// API: Report a new traffic light issue
+app.post('/api/traffic-lights', async (req, res) => {
+  try {
+    const { location, issueType, description, status } = req.body;
+    
+    // Validate required fields
+    if (!location || !issueType) {
+      return res.status(400).json({ message: 'Location and issue type are required' });
+    }
+    
+    const newTrafficLight = {
+      location,
+      issueType,
+      description: description || '',
+      status: status || 'reported',
+      reportedAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const result = await db.collection(collections.trafficLights).insertOne(newTrafficLight);
+    res.status(201).json({ 
+      message: 'Traffic light issue reported successfully',
+      id: result.insertedId 
+    });
+  } catch (error) {
+    console.error('Error reporting traffic light issue:', error);
+    res.status(500).json({ message: 'Error reporting traffic light issue' });
+  }
+});
+
+// API: Update traffic light status
+app.put('/api/traffic-lights/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
+    }
+    
+    const result = await db.collection(collections.trafficLights).updateOne(
+      { _id: new ObjectId(id) },
+      { 
+        $set: { 
+          status,
+          updatedAt: new Date()
+        }
+      }
+    );
+    
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: 'Traffic light issue not found' });
+    }
+    
+    res.json({ message: 'Traffic light status updated successfully' });
+  } catch (error) {
+    console.error('Error updating traffic light status:', error);
+    res.status(500).json({ message: 'Error updating traffic light status' });
   }
 });
 
